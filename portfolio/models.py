@@ -12,3 +12,12 @@ class Stock(models.Model):
 
         return self.symbol + ' : ' + self.name
 
+
+class StockQuery(models.Model):
+
+    name = models.CharField(max_length=200)
+    symbol = models.CharField(max_length=25)
+    bid_price = models.DecimalField(max_digits=15, decimal_places=2)
+    ask_price = models.DecimalField(max_digits=15, decimal_places=2)
+
+
