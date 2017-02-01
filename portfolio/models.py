@@ -21,3 +21,8 @@ class StockQuery(models.Model):
     ask_price = models.DecimalField(max_digits=15, decimal_places=2)
 
 
+class PortfolioEntry(models.Model):
+
+    name = models.CharField(max_length=200)
+    symbol = models.CharField(max_length=25)
+    buy_price = models.DecimalField(max_digits=15, decimal_places=2)
