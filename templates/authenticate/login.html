@@ -11,7 +11,7 @@
 <div>
   <h1>Welcome to Stock Exchange Portfolio</h1>
             
-  <form class="pure-form" action="{% url 'auth.views.login' %}" method="post">
+  <form class="pure-form" action="{% url 'authenticate:login' %}" method="post">
     {% csrf_token %}
     {{ form }}
     <input class="pure-button" type="submit" value="Start Session" />
