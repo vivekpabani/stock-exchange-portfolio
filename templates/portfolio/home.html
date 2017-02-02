@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Portfolio{% endblock %}
+
+
+{% block right-content %}
+<div class="portfolio">
+  <div>
+    <h2>Current Portfolio</h2>
+    {% if username %}
+    <p> {{username}} </p>
+    {%endif%}
+  </div>
+</div>
+{% endblock %}
