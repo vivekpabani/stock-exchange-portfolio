@@ -1,8 +1,11 @@
 from django.db import models, transaction, IntegrityError
+
 from decimal import * 
-
-# Create your models here.
-
+from .exceptions import (
+        StockDoesNotExistException,
+        NotEnoughAmountForTransactionException,
+        NotEnoughSharesForTransactionException,
+        InternalTransactionException)
 
 class Stock(models.Model):
 
@@ -22,8 +25,7 @@ class Stock(models.Model):
         """
         symbol = list(in_json.keys())[0]
         if symbol == "null":
-            print("Stock Not Available")
-            return None
+            raise StockDoesNotExistException("Cannot find any stock with given symbol.")
 
         stock, created = Stock.objects.get_or_create(symbol=symbol)
 
@@ -36,10 +38,6 @@ class Stock(models.Model):
 
         print("Stock Returning : ", stock.name)
         return stock 
-
-    def __str__(self):
-
-        return self.symbol + ' : ' + self.name
 
 
 class Portfolio(models.Model):
@@ -58,10 +56,7 @@ class Portfolio(models.Model):
         buy_amount = (buy_price * quantity).quantize(Decimal('0.00'))
 
         if buy_amount > self.amount:
-
-            # throw an error here later.  
-            print("You don't have enough amount to make this transaction.")
-            return
+            raise NotEnoughAmountForTransactionException("You don't have enough amount to make this transaction.")
 
         try:
             with transaction.atomic():
@@ -92,7 +87,7 @@ class Portfolio(models.Model):
                 print("after protfoio if")
             
         except IntegrityError:
-            pass
+            raise InternalTransactionException("Internal transaction error. Please try again.")
 
 
     def sell_shares(self, stock_query, quantity):
@@ -110,9 +105,7 @@ class Portfolio(models.Model):
 
         if available_quantity < quantity:
          
-            # throw an error here later.
-            print("You don't have enough shares to make this transaction.")
-            return
+            raise NotEnoughSharesForTransactionException("You don't have enough shares to make this transaction.")
 
         try:
             with transaction.atomic():
@@ -132,16 +125,12 @@ class Portfolio(models.Model):
                 self.save()
 
         except IntegrityError:
-            pass
+            raise InternalTransactionException("Internal transaction error. Please try again.")
 
+    def reset(self):
 
-class StockQuery(models.Model):
- 
-    stock = models.ForeignKey('portfolio.Stock')
-    #name = models.CharField(max_length=200)
-    #symbol = models.CharField(max_length=25)
-    bid_price = models.DecimalField(max_digits=15, decimal_places=2)
-    ask_price = models.DecimalField(max_digits=15, decimal_places=2)
+        PortfolioEntry.objects.filter(username=username).delete()
+        self.amount = Decimal(100000.00)
 
 
 class PortfolioEntry(models.Model):
