@@ -1,6 +1,7 @@
 from django.db import models, transaction, IntegrityError
 
 from decimal import * 
+from datetime import datetime
 from .exceptions import (
         StockDoesNotExistException,
         NotEnoughAmountForTransactionException,
@@ -8,7 +9,6 @@ from .exceptions import (
         InternalTransactionException)
 
 class Stock(models.Model):
-
     
     name = models.CharField(max_length=200)
     symbol = models.CharField(max_length=25)
@@ -23,7 +23,9 @@ class Stock(models.Model):
 
         :return (Stock): an instance of Stock class with attributes from json.
         """
+
         symbol = list(in_json.keys())[0]
+
         if symbol == "null":
             raise StockDoesNotExistException("Cannot find any stock with given symbol.")
 
@@ -36,7 +38,6 @@ class Stock(models.Model):
                 stock.name = symbol
             stock.save()
 
-        print("Stock Returning : ", stock.name)
         return stock 
 
 
@@ -60,21 +61,15 @@ class Portfolio(models.Model):
 
         try:
             with transaction.atomic():
-                print("In atomic")
                 self.amount = self.amount - buy_amount
                 self.save() 
-                print("self saved")
-
-                print(self.username, stock.symbol, buy_price)
 
                 portfolio_entry = PortfolioEntry.objects.filter(
                                             username=self.username,
                                             stock=stock,
                                             buy_price=buy_price)
 
-                print("Before protfoio if")
                 if portfolio_entry:
-                    "In portfolio entry"
                     portfolio_entry = portfolio_entry[0]
                     portfolio_entry.quantity = portfolio_entry.quantity + quantity
                     portfolio_entry.save()
@@ -84,7 +79,13 @@ class Portfolio(models.Model):
                                            stock=stock,
                                            buy_price=buy_price,
                                            quantity=quantity)
-                print("after protfoio if")
+
+                OrderHistory.objects.create(
+                                           username=self.username,
+                                           stock=stock,
+                                           price=buy_price,
+                                           quantity=quantity,
+                                           order_type="BUY")
             
         except IntegrityError:
             raise InternalTransactionException("Internal transaction error. Please try again.")
@@ -124,13 +125,22 @@ class Portfolio(models.Model):
                 self.amount = self.amount + (sell_price*quantity).quantize(Decimal('0.00'))
                 self.save()
 
+                OrderHistory.objects.create(
+                                           username=self.username,
+                                           stock=stock,
+                                           price=sell_price,
+                                           quantity=quantity,
+                                           order_type="SELL")
+
         except IntegrityError:
             raise InternalTransactionException("Internal transaction error. Please try again.")
 
     def reset(self):
 
-        PortfolioEntry.objects.filter(username=username).delete()
+        PortfolioEntry.objects.filter(username=self.username).delete()
+        OrderHistory.objects.filter(username=self.username).delete()
         self.amount = Decimal(100000.00)
+        self.save()
 
 
 class PortfolioEntry(models.Model):
@@ -138,3 +148,15 @@ class PortfolioEntry(models.Model):
     stock = models.ForeignKey('portfolio.Stock')
     buy_price = models.DecimalField(max_digits=15, decimal_places=2)
     quantity = models.IntegerField()
+
+class OrderHistory(models.Model):
+
+    ORDER_TYPE_CHOICES = (('BUY', 'BUY'),
+                          ('SELL', 'SELL'),
+                         ) 
+    username = models.CharField(max_length=20)
+    stock = models.ForeignKey('portfolio.Stock')
+    price = models.DecimalField(max_digits=15, decimal_places=2)
+    quantity = models.IntegerField()
+    datetime = models.DateTimeField(default=datetime.now)
+    order_type = models.CharField(max_length=10, choices=ORDER_TYPE_CHOICES) 
