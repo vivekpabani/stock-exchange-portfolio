@@ -1,4 +1,5 @@
-from django.db import models, transaction
+from django.db import models, transaction, IntegrityError
+from decimal import* 
 
 # Create your models here.
 
@@ -19,18 +20,21 @@ class Stock(models.Model):
 
         :return (Stock): an instance of Stock class with attributes from json.
         """
-
-        if 'symbol' not in in_json:
+        symbol = list(in_json.keys())[0]
+        if symbol == "null":
             print("Stock Not Available")
             return None
 
-        stock, created = Stock.objects.get_or_create(symbol=in_json['symbol'])
+        stock, created = Stock.objects.get_or_create(symbol=symbol)
 
         if created:
 
-            stock['name'] = in_json['name']
+            stock.name = in_json[symbol]['name']
+            if not stock.name:
+                stock.name = symbol
             stock.save()
 
+        print("Stock Returning : ", stock.name)
         return stock 
 
     def __str__(self):
@@ -41,21 +45,19 @@ class Stock(models.Model):
 class Portfolio(models.Model):
 
     username = models.CharField(max_length=20)
-    amount = models.DecimalField(min_value=0, 
-                                 max_digits=15, 
-                                 decimal_places=2, 
-                                 default_value=100000.00)
+    amount = models.DecimalField(max_digits=15,
+                                 decimal_places=2,
+                                 default=100000.00) 
 
-    def buy_stock(self, query_stock, quantity):
-
-        stock = stock_query.stock
-        buy_price = stock_query.bid_price
+    def buy_shares(self, stock_query, quantity):
+        stock = Stock.objects.get(symbol = stock_query['symbol'])
+        buy_price = Decimal.from_float(stock_query['ask_price']).quantize(Decimal('0.00'))
 
         # Check if the amount is enough
 
-        buy_amount = buy_price * quantity
+        buy_amount = (buy_price * quantity).quantize(Decimal('0.00'))
 
-        if buy_amount > buy_price:
+        if buy_amount > self.amount:
 
             # throw an error here later.  
             print("You don't have enough amount to make this transaction.")
@@ -63,40 +65,48 @@ class Portfolio(models.Model):
 
         try:
             with transaction.atomic():
+                print("In atomic")
                 self.amount = self.amount - buy_amount
                 self.save() 
+                print("self saved")
+
+                print(self.username, stock.symbol, buy_price)
 
                 portfolio_entry = PortfolioEntry.objects.filter(
-                                            username=request.username,
+                                            username=self.username,
                                             stock=stock,
-                                            buy_price=price)
+                                            buy_price=buy_price)
 
+                print("Before protfoio if")
                 if portfolio_entry:
+                    "In portfolio entry"
+                    portfolio_entry = portfolio_entry[0]
                     portfolio_entry.quantity = portfolio_entry.quantity + quantity
                     portfolio_entry.save()
                 else:
                     PortfolioEntry.objects.create( 
-                                           username=request.username,
+                                           username=self.username,
                                            stock=stock,
-                                           buy_price=price,
+                                           buy_price=buy_price,
                                            quantity=quantity)
+                print("after protfoio if")
             
         except IntegrityError:
             pass
 
 
-    def sell_stock(self, query_stock, quantity):
+    def sell_shares(self, stock_query, quantity):
 
-        stock = stock_query.stock
-        sell_price = stock_query.bid_price
+        stock = Stock.objects.get(symbol = stock_query['symbol'])
+        sell_price = Decimal.from_float(stock_query['bid_price']).quantize(Decimal('0.00'))
 
         portfolio_entries = PortfolioEntry.objects.filter(
-                                         username=request.username,
+                                         username=self.username,
                                          stock=stock).order_by('-buy_price')
         available_quantity = 0
 
         if portfolio_entries:  
-            available_quantity = sum(portfolio_entries, key=lambda entry:entry.quantity)
+            available_quantity = sum(entry.quantity for entry in portfolio_entries)
 
         if available_quantity < quantity:
          
@@ -110,7 +120,7 @@ class Portfolio(models.Model):
                 remaining_quantity = quantity
 
                 for entry in portfolio_entries:
-                    if entry.quantity < remaining_quantity:
+                    if entry.quantity <= remaining_quantity:
                         remaining_quantity = remaining_quantity - entry.quantity
                         entry.delete()
                     else:
@@ -118,7 +128,8 @@ class Portfolio(models.Model):
                         entry.save()
                         break
 
-                self.amount = self.amount + sell_price*quantity
+                self.amount = self.amount + (sell_price*quantity).quantize(Decimal('0.00'))
+                self.save()
 
         except IntegrityError:
             pass
@@ -126,14 +137,15 @@ class Portfolio(models.Model):
 
 class StockQuery(models.Model):
  
-    name = models.CharField(max_length=200)
-    symbol = models.CharField(max_length=25)
+    stock = models.ForeignKey('portfolio.Stock')
+    #name = models.CharField(max_length=200)
+    #symbol = models.CharField(max_length=25)
     bid_price = models.DecimalField(max_digits=15, decimal_places=2)
     ask_price = models.DecimalField(max_digits=15, decimal_places=2)
 
 
 class PortfolioEntry(models.Model):
-    user_name = models.CharField(max_length=20) 
+    username = models.CharField(max_length=20) 
     stock = models.ForeignKey('portfolio.Stock')
     buy_price = models.DecimalField(max_digits=15, decimal_places=2)
-    quantity = models.IntegerField(min_value=1)
+    quantity = models.IntegerField()
