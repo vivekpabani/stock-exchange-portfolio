@@ -3,6 +3,7 @@ from django.core.urlresolvers import reverse
 
 from .models import Stock, StockQuery, Portfolio, PortfolioEntry
 from .helper import fetch_json_from_symbol as fetch_json
+from .forms import TransactionForm, SearchSymbolForm
 
 def home(request):
 
@@ -16,13 +17,17 @@ def home(request):
     portfolio_entries = PortfolioEntry.objects.filter(username=username)
 
     context = dict()
-    print(portfolio, portfolio.username, portfolio.amount)
     context['portfolio'] = portfolio
     if portfolio_entries:
         context['portfolio_entries'] = portfolio_entries
 
     if 'stock_query' in request.session.keys():
         context['stock_query'] = request.session['stock_query']
+
+    transaction_form = TransactionForm(request.POST or None)
+    search_symbol_form = SearchSymbolForm(request.POST or None)
+    context['transaction_form'] = transaction_form
+    context['search_symbol_form'] = search_symbol_form 
 
     if 'symbol' in request.GET:
         symbol = request.GET['symbol'] 
@@ -32,16 +37,6 @@ def home(request):
                        'name':stock.name,
                        'bid_price':json[symbol]['bidPrice'],
                        'ask_price':json[symbol]['askPrice']}
-        """
-        stock_query = StockQuery.objects.create(stock=stock,
-                                                bid_price=json[symbol]['bidPrice'],
-                                                ask_price=json[symbol]['askPrice'])
-
-
-        request.session['stock_symbol'] = symbol
-        request.session['stock_bid_price'] = stock_query.bid_price 
-        request.session['stock_ask_price'] = stock_query.ask_price
-        """
         request.session['stock_query'] = stock_query
 
         context['stock_query'] = stock_query
@@ -64,29 +59,3 @@ def transaction(request):
     return redirect(reverse("portfolios:home"))
 
 
-def buy_shares(request):
-
-    print("In Buy")
-    print(request.session['username'])
-    portfolio = Portfolio.objects.get(username=request.session['username'])
-
-    """
-    stock = Stock.objects.get(symbol=request.session['stock_symbol'])
-    stock_query = StockQuery.objects.create(stock=stock,
-                                            bid_price=request.session['stock_bid_price'],
-                                            ask_price=request.session['stock_ask_price'])
-    """
-    stock_query = request.session['stock_query']
-    quantity = request.POST['quantity']
-
-    print("Before buy")
-    print(quantity, portfolio.username, stock_query['bid_price'])
-    portfolio.buy_shares(stock_query, int(quantity)) 
-    print("Buy Done")
-
-    return redirect(reverse("portfolios:home"))
-
-
-def sell_shares(request):
-
-    pass
