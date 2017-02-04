@@ -19,5 +19,7 @@ def login(request):
 def logout(request):
 
     request.session['username'] = ''    
+    for key in list(request.session.keys()):
+        del request.session[key]
 
-    return render(request, 'authenticate/login.html') 
+    return redirect('authenticate:login')
