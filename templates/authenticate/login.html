@@ -2,19 +2,13 @@
 {% block title %}Stock Exchange Portfolio{% endblock %}
 
 {% block left-content %}
-  <div class="splash">
-    <img src="http://cdn1.benzinga.com/sites/all/themes/bz2/images/logo-basic.png" />
-  </div>
-{% endblock %}
-
-{% block right-content %}
-<div>
-  <h1>Welcome to Stock Exchange Portfolio</h1>
+<div class="left-content login-content">
+  <h1>Welcome</h1>
             
   <form class="pure-form" action="{% url 'authenticate:login' %}" method="post">
     {% csrf_token %}
     {{ form }}
-    <input class="pure-button" type="submit" value="Start Session" />
+    <input class="pure-button pure-button-primary" type="submit" value="Start Session" />
   </form>
 </div>
 {% endblock %}

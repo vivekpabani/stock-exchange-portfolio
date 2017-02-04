@@ -8,20 +8,28 @@
   <title>{% block title %}{% endblock %}-Portfolio</title>
   <link rel="stylesheet" href="https://unpkg.com/purecss@0.6.2/build/pure-min.css">
   <link rel="stylesheet" href="{% static "css/style.css" %}">
-
 </head>
 
 <body>
   <div class="header">
     <div class="home-menu pure-menu pure-menu-horizontal pure-menu-fixed">
-      <a class="pure-menu-heading" href="">Stock Exchange Portfolio</a>
-
+      <a class="pure-menu-heading" href="">Stock Exchange Portfolio
+      {% if username %}
+      | Welcome {{ username }} 
+      {% endif %}
+      </a>
       {% if request.username %}
         <ul class="pure-menu-list">
-          <form id="search" class="pure-form pure-form-aligned search-form">
+          <form id="search" class="pure-form search-form">
             <fieldset class="pure-group">
-            <li class="pure-menu-item"> <input id="input-symbol" type="text" class="search-symbol-text" name="symbol" placeholder="Enter Symbol"/> </li>
+            <li class="pure-menu-item"> <input id="input-symbol" type="text" class="search-symbol-text" name="symbol" placeholder="Enter Symbol" required/> </li> 
             <li class="pure-menu-item"> <button id="btn-search" class="button-xlarge pure-button search-symbol-button">Search</button> </li>
+
+            &emsp;
+            <li class="pure-menu-item"> <a class="menu-link" href="/portfolio/reset/"> Reset </a> </li>
+            &emsp;
+            <li class="pure-menu-item"> <a class="menu-link" href="/authenticate/logout/"> Logout </a> </li> 
+            &emsp;
             </fieldset>
           </form>
         </ul>
@@ -29,30 +37,12 @@
     </div>
   </div>
 
-  <!--
-  <div class="header-wrapper">
-    <h5 class="float-left header-text">
-        Stock Exchange Portfolio
-    </h5>
+  <div id="main-content" class="main-content">
 
-    {% if request.username %}
-      <div class="float-right header-input-wrapper">
-        <form id="search" class="search-form">
-          <input id="input-symbol" type="text" name="symbol" placeholder="Enter Symbol"/>
-          <button id="btn-search" class="search-button">Search</button>
-        </form>
-
-    {% endif %}
-
-  </div>
-  -->
-
-  <div id="content">
-
-    {% if context.messages %}
+    {% if messages %}
     <ul class="messages">
-      {% for message in context.messages %}
-        <li{% if context.message.tags %} class="{{ context.message.tags }}"{% endif %}>{{ context.message }}</li>
+      {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li> 
       {% endfor %}
     </ul>
     {% endif %}
