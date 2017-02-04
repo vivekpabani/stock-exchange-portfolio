@@ -1,5 +1,5 @@
 from django.db import models, transaction, IntegrityError
-from decimal import* 
+from decimal import * 
 
 # Create your models here.
 
