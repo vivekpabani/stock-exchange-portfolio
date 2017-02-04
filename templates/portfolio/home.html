@@ -1,15 +1,71 @@
 {% extends 'base.html' %}
 
-{% block title %}Portfolio{% endblock %}
+{% block title %}Home{% endblock %}
 
+{% block left-content %}
+  {% if stock_query %}
+  <div class="stock_query">
+    <h2 class="title">{{ stock_query.name }} <span id='symbol'>{{ stock_query.symbol }}</span></h2>
+
+
+    <table class="pure-table">
+      <thead>
+        <tr>
+          <th>Bid</th>
+          <th>Ask</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr>
+          <td id="bid-price">{{ stock_query.bid_price }}</td>
+          <td id="ask-price">{{ stock_query.ask_price }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <form class="pure-form" method="POST" action="/portfolio/transaction/"> {% csrf_token %}
+      <input id="input-quantity" type="text" name="quantity" placeholder="Quantity"/>
+    <button type="submit" name="buy" id="btn-buy" class="pure-button pure-button-primary">Buy</button>
+    <button type="submit" name="sell" id="btn-sell" class="pure-button pure-button-primary">Sell</button>
+    </form>
+    
+  </div>
+  {% endif %}
+{% endblock %}
 
 {% block right-content %}
 <div class="portfolio">
   <div>
     <h2>Current Portfolio</h2>
-    {% if username %}
-    <p> {{username}} </p>
-    {%endif%}
+
+    <p class="amount">
+    Cash: ${{ portfolio.amount }}
+    </p>
+
   </div>
+  {% if portfolio_entries %}
+    <table class="pure-table">
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Quantity</th>
+          <th>Price Paid</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for pe in portfolio_entries %}
+        <tr>
+          <td>{{ pe.stock.name }}</td>
+          <td>{{ pe.quantity }}</td>
+          <td>{{ pe.buy_price }}</td>
+          <td><a class="pure-button" href="/?symbol={{ pe.stock.symbol }}">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
 </div>
 {% endblock %}
