@@ -1,5 +1,8 @@
 from django.shortcuts import render, redirect
 from django.core.urlresolvers import reverse
+from django.contrib import messages 
+
+from decimal import *
 
 from .models import Stock, StockQuery, Portfolio, PortfolioEntry
 from .helper import fetch_json_from_symbol as fetch_json
@@ -46,6 +49,8 @@ def home(request):
 
 def transaction(request):
 
+    messages.warning(request, "Starting transaction")
+
     portfolio = Portfolio.objects.get(username=request.session['username'])
     stock_query = request.session['stock_query']
     quantity = request.POST['quantity']    
@@ -59,3 +64,14 @@ def transaction(request):
     return redirect(reverse("portfolios:home"))
 
 
+def reset(request):
+
+    username=request.session['username']
+    PortfolioEntry.objects.filter(username=username).delete()
+    portfolio = Portfolio.objects.get(username=username)
+    #setattr(portfolio, amount, amount.default) 
+    portfolio.amount = Decimal(100000.00)
+    portfolio.save()
+    request.session['stock_query'] = ''
+
+    return redirect(reverse("portfolios:home"))
