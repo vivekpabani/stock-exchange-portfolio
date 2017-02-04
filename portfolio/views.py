@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect
 from django.core.urlresolvers import reverse
 from django.contrib import messages 
+from django.core.exceptions import ValidationError
 
 from decimal import *
 
-from .models import Stock, StockQuery, Portfolio, PortfolioEntry
+from .models import Stock, Portfolio, PortfolioEntry, OrderHistory
 from .helper import fetch_json_from_symbol as fetch_json
 from .forms import TransactionForm, SearchSymbolForm
 
@@ -16,23 +17,21 @@ def home(request):
         return redirect('authenticate/login')
 
     request.username = username
-    portfolio, created = Portfolio.objects.get_or_create(username=username)
-    portfolio_entries = PortfolioEntry.objects.filter(username=username)
-
+    
+    order_history = None
     context = dict()
-    context['portfolio'] = portfolio
-    if portfolio_entries:
-        context['portfolio_entries'] = portfolio_entries
 
-    if 'stock_query' in request.session.keys():
-        context['stock_query'] = request.session['stock_query']
-
-    transaction_form = TransactionForm(request.POST or None)
-    search_symbol_form = SearchSymbolForm(request.POST or None)
-    context['transaction_form'] = transaction_form
-    context['search_symbol_form'] = search_symbol_form 
+    if 'stock_query' in request.session.keys() and request.session['stock_query']:
+        stock_query = request.session['stock_query']
+        context['stock_query'] = stock_query
+        symbol = stock_query['symbol'] 
+        stock = Stock.objects.get(symbol=symbol)
+        order_history = OrderHistory.objects.filter(username=username, 
+                                                    stock=stock).order_by('-id')[:5]
 
     if 'symbol' in request.GET:
+        if not request.GET['symbol']:
+            raise ValidationError("No symbol found. Please try again.")
         symbol = request.GET['symbol'] 
         json = fetch_json(symbol)
         stock = Stock.from_json(json)
@@ -44,12 +43,32 @@ def home(request):
 
         context['stock_query'] = stock_query
 
+        order_history = OrderHistory.objects.filter(username=username, 
+                                                    stock=stock).order_by('-id')[:5]
+
+    portfolio, created = Portfolio.objects.get_or_create(username=username)
+
+    portfolio_entries = PortfolioEntry.objects.filter(username=username)
+    portfolio_entries = sorted(portfolio_entries, key= lambda entry: entry.stock.name)
+
+    transaction_form = TransactionForm(request.POST or None)
+    search_symbol_form = SearchSymbolForm(request.POST or None)
+
+    context['portfolio'] = portfolio
+    context['username'] = username
+    context['transaction_form'] = transaction_form
+    context['search_symbol_form'] = search_symbol_form
+
+    if order_history:
+        context['order_history'] = order_history 
+
+    if portfolio_entries:
+        context['portfolio_entries'] = portfolio_entries
+
     return render(request, 'portfolio/home.html', context)
 
 
 def transaction(request):
-
-    messages.warning(request, "Starting transaction")
 
     portfolio = Portfolio.objects.get(username=request.session['username'])
     stock_query = request.session['stock_query']
@@ -67,11 +86,8 @@ def transaction(request):
 def reset(request):
 
     username=request.session['username']
-    PortfolioEntry.objects.filter(username=username).delete()
     portfolio = Portfolio.objects.get(username=username)
-    #setattr(portfolio, amount, amount.default) 
-    portfolio.amount = Decimal(100000.00)
-    portfolio.save()
+    portfolio.reset()
     request.session['stock_query'] = ''
 
     return redirect(reverse("portfolios:home"))
