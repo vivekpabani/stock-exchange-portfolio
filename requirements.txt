@@ -6,3 +6,6 @@ pyparsing==2.1.10
 pytz==2016.10
 requests==2.13.0
 six==1.10.0
+gunicorn==19.4.5
+whitenoise==2.0.6
+dj-database-url==0.4.0
