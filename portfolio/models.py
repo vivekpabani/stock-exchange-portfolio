@@ -6,7 +6,9 @@ from .exceptions import (
         StockDoesNotExistException,
         NotEnoughAmountForTransactionException,
         NotEnoughSharesForTransactionException,
+        PriceChangedException,
         InternalTransactionException)
+from .helper import fetch_json_from_symbol as fetch_json
 
 class Stock(models.Model):
     
@@ -49,8 +51,13 @@ class Portfolio(models.Model):
                                  default=100000.00) 
 
     def buy_shares(self, stock_query, quantity):
+        symbol = stock_query['symbol']
+        latest_buy_price = fetch_json(symbol)[symbol]['askPrice']
+        if latest_buy_price != stock_query['ask_price']:
+            raise PriceChangedException("The price of the stock changed. Please try again.")
         stock = Stock.objects.get(symbol = stock_query['symbol'])
         buy_price = Decimal.from_float(stock_query['ask_price']).quantize(Decimal('0.00'))
+        latest_buy_price = fetch_json(stock.symbol)[stock.symbol]['askPrice']
 
         # Check if the amount is enough
 
@@ -92,6 +99,10 @@ class Portfolio(models.Model):
 
 
     def sell_shares(self, stock_query, quantity):
+
+        latest_sell_price = fetch_json(symbol)[symbol]['bidPrice']
+        if latest_sell_price != stock_query['bid_price']:
+            raise PriceChangedException("The price of the stock changed. Please try again.")
 
         stock = Stock.objects.get(symbol = stock_query['symbol'])
         sell_price = Decimal.from_float(stock_query['bid_price']).quantize(Decimal('0.00'))

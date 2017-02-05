@@ -11,5 +11,8 @@ class NotEnoughSharesForTransactionException(Exception):
 class CannotConnectToServerException(Exception):
     pass
 
+class PriceChangedException(Exception):
+    pass
+
 class InternalTransactionException(Exception):
     pass
