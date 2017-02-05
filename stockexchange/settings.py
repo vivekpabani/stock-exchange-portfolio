@@ -25,7 +25,7 @@ SECRET_KEY = 'o^e_-ycuxi$f@2!&indrv=7mm^rn2x#*-*g%ovjn$d4oeu1rn4'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [u'stock-exchange-portfolio.herokuapp.com']
 
 
 # Application definition
