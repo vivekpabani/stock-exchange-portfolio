@@ -56,8 +56,8 @@ class Portfolio(models.Model):
         if latest_buy_price != stock_query['ask_price']:
             raise PriceChangedException("The price of the stock changed. Please try again.")
         stock = Stock.objects.get(symbol = stock_query['symbol'])
+
         buy_price = Decimal.from_float(stock_query['ask_price']).quantize(Decimal('0.00'))
-        latest_buy_price = fetch_json(stock.symbol)[stock.symbol]['askPrice']
 
         # Check if the amount is enough
 
@@ -68,7 +68,7 @@ class Portfolio(models.Model):
 
         try:
             with transaction.atomic():
-                self.amount = self.amount - buy_amount
+                self.amount = Decimal(self.amount) - buy_amount
                 self.save() 
 
                 portfolio_entry = PortfolioEntry.objects.filter(
