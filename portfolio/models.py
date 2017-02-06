@@ -2,6 +2,7 @@ from django.db import models, transaction, IntegrityError
 
 from decimal import * 
 from datetime import datetime
+from django.utils import timezone
 from .exceptions import (
         StockDoesNotExistException,
         NotEnoughAmountForTransactionException,
@@ -100,6 +101,8 @@ class Portfolio(models.Model):
 
     def sell_shares(self, stock_query, quantity):
 
+        symbol = stock_query['symbol']
+
         latest_sell_price = fetch_json(symbol)[symbol]['bidPrice']
         if latest_sell_price != stock_query['bid_price']:
             raise PriceChangedException("The price of the stock changed. Please try again.")
@@ -169,5 +172,5 @@ class OrderHistory(models.Model):
     stock = models.ForeignKey('portfolio.Stock')
     price = models.DecimalField(max_digits=15, decimal_places=2)
     quantity = models.IntegerField()
-    datetime = models.DateTimeField(default=datetime.now)
+    datetime = models.DateTimeField(default=timezone.now)
     order_type = models.CharField(max_length=10, choices=ORDER_TYPE_CHOICES) 

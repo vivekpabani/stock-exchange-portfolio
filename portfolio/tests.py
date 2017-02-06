@@ -17,96 +17,153 @@ class StockTestCases(TestCase):
 
     def setUp(self):
 
-        self.found_stock_json = {
-                                "AA":{
-                                    "symbol": "AA",
-                                    "name": "AA Company"
-                                 }
-                           }
-        self.not_found_json = {
-                               "null": {
-                                  "error": {
-                                      "code": 1,
-                                      "message": "Unknown symbol."
-                                       }
-                                   }
-                              } 
+        self.available_stock_symbol = 'A'
+        self.not_available_stock_symbol = 'BBBBB'
 
     def test_from_json_with_found_stock_json(self):
 
-        stock = Stock.from_json(self.found_stock_json)
-        self.assertEqual(stock.symbol, self.found_stock_json['AA']['symbol'])
-        self.assertEqual(stock.name, self.found_stock_json['AA']['name'])
+        found_stock_json = fetch_json(self.available_stock_symbol)
+        stock = Stock.from_json(found_stock_json)
+        self.assertEqual(stock.symbol, self.available_stock_symbol)
+        self.assertEqual(stock.name, found_stock_json[self.available_stock_symbol]['name'])
 
     def test_from_json_with_not_found_json(self):
 
+        not_found_json = fetch_json(self.not_available_stock_symbol)
         with self.assertRaises(StockDoesNotExistException):
-            stock = Stock.from_json(self.not_found_json)
+            stock = Stock.from_json(not_found_json)
 
 
 class PortfolioTestCases(TestCase):
+
     def setUp(self):
         self.portfolio = Portfolio.objects.create(username="Foo") 
-        self.stock_aa = {
-                        "AA":{
-                             "symbol": "AA",
-                             "name": "AA Company",
-                             "bidPrice": 12.53,
-                             "askPrice": 20.24
-                             }
-                         }
+        self.symbol_a = "A"
+        self.symbol_b = "B"
 
-        self.stock_bb = {
-                        "BB":{
-                             "symbol": "BB",
-                             "name": "BB Company",
-                             "bidPrice": 25.80,
-                             "askPrice": 40.24
-                             }
-                         }
-        self.stock_bb_updated = {
-                        "BB":{
-                             "symbol": "BB",
-                             "name": "BB Company",
-                             "bidPrice": 45.80,
-                             "askPrice": 70.24
-                             }
-                         }
+    def test_buy_one_new_stock(self):
 
-        self.stock_query_aa = {
-                             "symbol": "AA",
-                             "name": "AA Company",
-                             "bid_price": 12.53,
-                             "ask_price": 20.24
-                             }
+        json = fetch_json(self.symbol_a)
+        stock_a = Stock.from_json(json)
+        stock_query_a = self.json_to_query(json)
 
-        self.stock_query_bb = {
-                             "symbol": "BB",
-                             "name": "BB Company",
-                             "bid_price": 25.80,
-                             "ask_price": 40.24
-                             }
-        self.stock_query_bb_updated = {
-                             "symbol": "BB",
-                             "name": "BB Company",
-                             "bid_price": 45.80,
-                             "ask_price": 70.24
-                             }
-    def test_buy_new_stock(self):
-        """ check balance """
+        self.portfolio.buy_shares(stock_query_a, 1)
 
-        symbol = 'AA'
-        json = fetch_json(symbol)
-        stock_aa = Stock.from_json(json)
-        stock_query_aa = {
-                         "symbol": symbol,
-                         "name": json[symbol]["name"],
-                         "bid_price": json[symbol]["bidPrice"] ,
-                         "ask_price": json[symbol]["askPrice"] 
-                         }
-        self.portfolio.buy_shares(stock_query_aa, 1)
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+        entry = portfolio_entries[0] 
 
-        portfolio_entry = PortfolioEntry.objects.filter(username=self.portfolio.username)
+        self.assertEqual(len(portfolio_entries), 1)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']).quantize(Decimal('0.00')))
+        self.assertEqual(entry.stock, stock_a)
+        self.assertEqual(entry.quantity, 1)
 
-        self.assertEqual(len(portfolio_entry), 1)
-        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_aa['ask_price']).quantize(Decimal('0.00')))
+    def test_buy_multiple_new_stocks(self):
+
+        json = fetch_json(self.symbol_a)
+        stock_a = Stock.from_json(json)
+        stock_query_a = self.json_to_query(json)
+
+        # buy first share of stock_a
+        self.portfolio.buy_shares(stock_query_a, 1)
+
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+        entry = portfolio_entries[0]
+
+        self.assertEqual(len(portfolio_entries), 1)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']).quantize(Decimal('0.00')))
+        self.assertEqual(entry.stock, stock_a)
+        self.assertEqual(entry.quantity, 1)
+
+        # buy second share of stock_b
+        json = fetch_json(self.symbol_b)
+        stock_b = Stock.from_json(json)
+        stock_query_b = self.json_to_query(json)
+        self.portfolio.buy_shares(stock_query_b, 1)
+
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username).order_by('id')
+
+        self.assertEqual(len(portfolio_entries), 2)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']-stock_query_b['ask_price']).quantize(Decimal('0.00')))
+
+        self.assertEqual(portfolio_entries[0].stock, stock_a)
+        self.assertEqual(portfolio_entries[0].quantity, 1)
+
+        self.assertEqual(portfolio_entries[1].stock, stock_b)
+        self.assertEqual(portfolio_entries[1].quantity, 1)
+
+    def test_buy_existing_stock(self):
+
+        json = fetch_json(self.symbol_a)
+        stock_a = Stock.from_json(json)
+        stock_query_a = self.json_to_query(json)
+
+        # buy first share of stock_a
+        self.portfolio.buy_shares(stock_query_a, 1)
+
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+        entry = portfolio_entries[0] 
+
+        self.assertEqual(len(portfolio_entries), 1)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']).quantize(Decimal('0.00')))
+        self.assertEqual(entry.stock, stock_a)
+        self.assertEqual(entry.quantity, 1)
+
+        # buy second share of stock_a
+        self.portfolio.buy_shares(stock_query_a, 1)
+
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+        entry = portfolio_entries[0]
+
+        self.assertEqual(len(portfolio_entries), 1)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-2*stock_query_a['ask_price']).quantize(Decimal('0.00')))
+        self.assertEqual(entry.stock, stock_a)
+        self.assertEqual(entry.quantity, 2)
+
+    def test_buy_stock_updated_price_inbetween(self):
+
+        json = fetch_json(self.symbol_a)
+        stock_a = Stock.from_json(json)
+        stock_query_a = self.json_to_query(json)
+
+        # mock updated price inbetween
+        stock_query_a['ask_price'] += 5.0
+
+        with self.assertRaises(PriceChangedException):
+            self.portfolio.buy_shares(stock_query_a, 1)
+
+    def test_sell_stock_available_quantity(self):
+
+        json = fetch_json(self.symbol_a)
+        stock_a = Stock.from_json(json)
+        stock_query_a = self.json_to_query(json)
+
+        self.portfolio.buy_shares(stock_query_a, 1)
+
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+        entry = portfolio_entries[0]
+
+        self.assertEqual(len(portfolio_entries), 1)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']).quantize(Decimal('0.00')))
+        self.assertEqual(entry.stock, stock_a)
+        self.assertEqual(entry.quantity, 1)
+
+        self.portfolio.sell_shares(stock_query_a, 1)
+
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+
+        self.assertEqual(len(portfolio_entries), 0)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']+stock_query_a['bid_price']).quantize(Decimal('0.00')))
+
+    def json_to_query(self, stock):
+
+        stock_query = dict()
+        key = list(stock.keys())[0]
+        if key == "null":
+            return -1
+
+        stock_query['symbol'] = key
+        stock_query['name'] = stock[key]['name']
+        stock_query['bid_price'] = stock[key]['bidPrice']
+        stock_query['ask_price'] = stock[key]['askPrice']
+
+        return stock_query
