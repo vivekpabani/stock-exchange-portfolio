@@ -12,6 +12,10 @@ from .exceptions import (
 from .helper import fetch_json_from_symbol as fetch_json
 
 class Stock(models.Model):
+    """
+    This class represents the stock object with minimal attributes.
+    It can be created from json or by calling the constructor. 
+    """
     
     name = models.CharField(max_length=200)
     symbol = models.CharField(max_length=25)
@@ -45,6 +49,11 @@ class Stock(models.Model):
 
 
 class Portfolio(models.Model):
+    """
+    This class represents the user's portfolio or the account.
+    It has username and the amount of the portfolio.
+    This provides the functions of buying and selling shares.
+    """
 
     username = models.CharField(max_length=20)
     amount = models.DecimalField(max_digits=15,
@@ -52,10 +61,22 @@ class Portfolio(models.Model):
                                  default=100000.00) 
 
     def buy_shares(self, stock_query, quantity):
+        """
+        Buy the shares of given uantity based on values in stock_query.
+        Verify if current price matches, and enough balance available. 
+
+        :param stock_query (dict): a dictionary object with details about the stock.
+        :param quantity (int): quantity to buy 
+        """
+
+        # verify if price changed since query.
+
         symbol = stock_query['symbol']
         latest_buy_price = fetch_json(symbol)[symbol]['askPrice']
+
         if latest_buy_price != stock_query['ask_price']:
             raise PriceChangedException("The price of the stock changed. Please try again.")
+        
         stock = Stock.objects.get(symbol = stock_query['symbol'])
 
         buy_price = Decimal.from_float(stock_query['ask_price']).quantize(Decimal('0.00'))
@@ -68,9 +89,17 @@ class Portfolio(models.Model):
             raise NotEnoughAmountForTransactionException("You don't have enough amount to make this transaction.")
 
         try:
+            # update amount
+            # insert/update the portfolio entry
+            # update order history
+
             with transaction.atomic():
                 self.amount = Decimal(self.amount) - buy_amount
                 self.save() 
+
+                # search for portfolio entry of same stock with same price
+                # if found, update the quantity
+                # else insert new record
 
                 portfolio_entry = PortfolioEntry.objects.filter(
                                             username=self.username,
@@ -100,6 +129,8 @@ class Portfolio(models.Model):
 
 
     def sell_shares(self, stock_query, quantity):
+
+        # verify if price changed since query.
 
         symbol = stock_query['symbol']
 
@@ -150,6 +181,9 @@ class Portfolio(models.Model):
             raise InternalTransactionException("Internal transaction error. Please try again.")
 
     def reset(self):
+        """
+        Reset the portfolio by deleting all portfolio entries, order history and default amount.
+        """
 
         PortfolioEntry.objects.filter(username=self.username).delete()
         OrderHistory.objects.filter(username=self.username).delete()
@@ -158,12 +192,21 @@ class Portfolio(models.Model):
 
 
 class PortfolioEntry(models.Model):
+    """
+    This class represents the entry in portfolio per shares available 
+    unique by stock and buy_price combined.
+    """
+
     username = models.CharField(max_length=20) 
     stock = models.ForeignKey('portfolio.Stock')
     buy_price = models.DecimalField(max_digits=15, decimal_places=2)
     quantity = models.IntegerField()
 
+
 class OrderHistory(models.Model):
+    """
+    This class represents order history. It has one line per order.
+    """
 
     ORDER_TYPE_CHOICES = (('BUY', 'BUY'),
                           ('SELL', 'SELL'),
