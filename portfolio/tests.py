@@ -9,6 +9,7 @@ from .exceptions import (
         NotEnoughAmountForTransactionException,
         NotEnoughSharesForTransactionException,
         PriceChangedException,
+        CannotConnectToServerException,
         InternalTransactionException)
 
 from decimal import *
@@ -131,6 +132,18 @@ class PortfolioTestCases(TestCase):
         with self.assertRaises(PriceChangedException):
             self.portfolio.buy_shares(stock_query_a, 1)
 
+    def test_buy_stock_not_enough_money(self):
+
+        json = fetch_json(self.symbol_a)
+        stock_a = Stock.from_json(json)
+        stock_query_a = self.json_to_query(json)
+
+        # make the balance zero and then try to buy
+        self.portfolio.amount = Decimal(0)
+
+        with self.assertRaises(NotEnoughAmountForTransactionException):
+            self.portfolio.buy_shares(stock_query_a, 1)
+
     def test_sell_stock_available_quantity(self):
 
         json = fetch_json(self.symbol_a)
@@ -153,6 +166,31 @@ class PortfolioTestCases(TestCase):
 
         self.assertEqual(len(portfolio_entries), 0)
         self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']+stock_query_a['bid_price']).quantize(Decimal('0.00')))
+
+    def test_sell_stock_not_available_quantity(self):
+
+        json = fetch_json(self.symbol_a)
+        stock_a = Stock.from_json(json)
+        stock_query_a = self.json_to_query(json)
+
+        self.portfolio.buy_shares(stock_query_a, 1)
+
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+        entry = portfolio_entries[0]
+
+        self.assertEqual(len(portfolio_entries), 1)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']).quantize(Decimal('0.00')))
+        self.assertEqual(entry.stock, stock_a)
+        self.assertEqual(entry.quantity, 1)
+
+        with self.assertRaises(NotEnoughSharesForTransactionException):
+            self.portfolio.sell_shares(stock_query_a, 10)
+
+        # check that account info and orders do not change because of failed transaction.
+        portfolio_entries = PortfolioEntry.objects.filter(username=self.portfolio.username)
+
+        self.assertEqual(len(portfolio_entries), 1)
+        self.assertEqual(self.portfolio.amount, Decimal(100000-stock_query_a['ask_price']).quantize(Decimal('0.00')))
 
     def json_to_query(self, stock):
 
